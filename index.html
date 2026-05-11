@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDmap — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root {
+  --bg: #0a0c0f;
+  --surface: #111418;
+  --surface2: #181c22;
+  --border: #1f2530;
+  --border2: #2a3140;
+  --text: #e8edf5;
+  --muted: #5a6478;
+  --accent: #3b7cff;
+  --accent3: #ff6b35;
+  --accent4: #c084fc;
+  --red: #ff4757;
+  --green: #00d4aa;
+  --yellow: #ffd32a;
+  --font-d: 'Bebas Neue', sans-serif;
+  --font-b: 'IBM Plex Sans', sans-serif;
+  --font-m: 'IBM Plex Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);font-size:13px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:0.4;}
+.app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:16px;}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 0 24px;border-bottom:1px solid var(--border);margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.logo{font-family:var(--font-d);font-size:28px;letter-spacing:2px;display:flex;align-items:center;gap:10px;}
+.logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(0.8);}}
+.header-meta{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;font-family:var(--font-m);flex-wrap:wrap;}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);color:var(--green);padding:4px 10px;border-radius:4px;font-size:10px;font-family:var(--font-m);letter-spacing:1px;text-transform:uppercase;}
+.live-dot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse 1.5s ease-in-out infinite;}
+
+.tabs{display:flex;gap:2px;margin-bottom:24px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:8px 16px;border:1px solid transparent;border-radius:4px;cursor:pointer;color:var(--muted);white-space:nowrap;transition:all 0.15s;font-family:var(--font-m);font-size:11px;letter-spacing:0.5px;background:none;}
+.tab:hover{color:var(--text);border-color:var(--border2);}
+.tab.active{color:var(--text);background:var(--surface);border-color:var(--border2);}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;overflow:hidden;transition:border-color 0.2s;}
+.kpi:hover{border-color:var(--border2);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-color,var(--accent));}
+.kpi-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:var(--font-m);margin-bottom:8px;}
+.kpi-value{font-family:var(--font-d);font-size:36px;letter-spacing:1px;line-height:1;margin-bottom:6px;}
+.kpi-delta{font-size:11px;font-family:var(--font-m);}
+.delta-up{color:var(--green);}.delta-down{color:var(--red);}.delta-flat{color:var(--muted);}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
+.grid-32{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px;}
+@media(max-width:768px){.grid-2,.grid-3,.grid-32{grid-template-columns:1fr;}.kpi-row{grid-template-columns:repeat(2,1fr);}}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;transition:border-color 0.2s;}
+.card:hover{border-color:var(--border2);}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;}
+.card-title{font-family:var(--font-d);font-size:16px;letter-spacing:1.5px;color:var(--text);}
+.card-badge{font-size:10px;font-family:var(--font-m);padding:3px 8px;border-radius:3px;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;}
+.badge-blue{background:rgba(59,124,255,0.1);color:var(--accent);border:1px solid rgba(59,124,255,0.2);}
+.badge-green{background:rgba(0,212,170,0.1);color:var(--green);border:1px solid rgba(0,212,170,0.2);}
+.badge-orange{background:rgba(255,107,53,0.1);color:var(--accent3);border:1px solid rgba(255,107,53,0.2);}
+.badge-purple{background:rgba(192,132,252,0.1);color:var(--accent4);border:1px solid rgba(192,132,252,0.2);}
+
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:60px;}
+.bar{flex:1;border-radius:2px 2px 0 0;background:var(--bar-color,var(--accent));opacity:0.7;min-height:4px;transition:opacity 0.2s;}
+.bar:hover{opacity:1;}
+
+.rev-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:8px;}
+.rev-row:last-child{border-bottom:none;}
+.rev-tier{display:flex;align-items:center;gap:8px;}
+.tier-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.rev-name{font-size:12px;font-family:var(--font-b);color:var(--text);}
+.rev-count{font-size:11px;font-family:var(--font-m);color:var(--muted);}
+.rev-amount{font-family:var(--font-d);font-size:18px;letter-spacing:1px;}
+.rev-bar-wrap{flex:1;height:3px;background:var(--border);border-radius:2px;max-width:80px;margin:0 8px;}
+.rev-bar-fill{height:100%;border-radius:2px;background:var(--fill-color);}
+
+.api-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.api-row:last-child{border-bottom:none;}
+.api-name{flex:1;font-size:12px;font-family:var(--font-m);}
+.api-calls{font-size:12px;font-family:var(--font-m);color:var(--muted);min-width:50px;text-align:right;}
+.api-cost{font-size:12px;font-family:var(--font-m);color:var(--accent3);min-width:55px;text-align:right;}
+.api-bar-wrap{width:80px;height:3px;background:var(--border);border-radius:2px;}
+.api-bar-fill{height:100%;border-radius:2px;background:var(--accent);opacity:0.6;}
+
+.pnl-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.pnl-row:last-child{border-bottom:none;}
+.pnl-label{color:var(--muted);font-family:var(--font-b);}
+.pnl-value{font-family:var(--font-d);font-size:18px;letter-spacing:1px;}
+
+.funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.funnel-label{font-size:11px;font-family:var(--font-m);color:var(--muted);min-width:110px;}
+.funnel-bar-wrap{flex:1;height:24px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.funnel-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:8px;font-size:11px;color:var(--bg);font-weight:500;}
+.funnel-pct{font-size:11px;font-family:var(--font-m);color:var(--muted);min-width:38px;text-align:right;}
+
+.section-label{font-size:10px;font-family:var(--font-m);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+.crash-item{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);}
+.crash-item:last-child{border-bottom:none;}
+.crash-title{font-size:12px;font-family:var(--font-m);color:var(--text);margin-bottom:3px;}
+.crash-meta{font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.7;}
+.crash-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+
+.btn{padding:5px 12px;border-radius:4px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:0.5px;border:1px solid;transition:all 0.15s;background:none;white-space:nowrap;}
+.btn-blue{border-color:rgba(59,124,255,0.4);color:var(--accent);}
+.btn-blue:hover{background:rgba(59,124,255,0.1);}
+.btn-purple{border-color:rgba(192,132,252,0.4);color:var(--accent4);}
+.btn-purple:hover{background:rgba(192,132,252,0.1);}
+.btn-green{border-color:rgba(0,212,170,0.4);color:var(--green);}
+.btn-green:hover{background:rgba(0,212,170,0.1);}
+.btn-ghost{border-color:var(--border2);color:var(--muted);}
+.btn-ghost:hover{color:var(--text);}
+
+.alert{display:flex;align-items:center;gap:10px;background:rgba(255,71,87,0.06);border:1px solid rgba(255,71,87,0.2);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ff8a8a;}
+.alert-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0;animation:pulse 1s ease-in-out infinite;}
+.alert-info{background:rgba(59,124,255,0.06);border-color:rgba(59,124,255,0.2);color:#8ab4ff;}
+.alert-info .alert-dot{background:var(--accent);}
+
+.uptime-blocks{display:flex;gap:3px;flex-wrap:wrap;}
+.uptime-block{width:12px;height:20px;border-radius:2px;background:var(--green);opacity:0.7;}
+.uptime-block.partial{background:var(--yellow);opacity:0.8;}
+
+/* MAP */
+#search-map{height:320px;border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+.leaflet-container{background:#0d1117 !important;}
+
+/* TODO */
+.todo-input-row{display:flex;gap:8px;margin-bottom:12px;}
+.todo-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-b);font-size:13px;outline:none;}
+.todo-input:focus{border-color:var(--accent);}
+.todo-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.todo-item:last-child{border-bottom:none;}
+.todo-check{width:16px;height:16px;border:1px solid var(--border2);border-radius:3px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-size:10px;color:var(--bg);}
+.todo-check.done{background:var(--green);border-color:var(--green);}
+.todo-text{flex:1;font-size:13px;line-height:1.5;}
+.todo-text.done{text-decoration:line-through;color:var(--muted);}
+.todo-priority{font-size:9px;font-family:var(--font-m);padding:2px 6px;border-radius:3px;letter-spacing:0.5px;text-transform:uppercase;flex-shrink:0;margin-top:2px;}
+.p-high{background:rgba(255,71,87,0.12);color:var(--red);border:1px solid rgba(255,71,87,0.25);}
+.p-med{background:rgba(255,211,42,0.1);color:var(--yellow);border:1px solid rgba(255,211,42,0.2);}
+.p-low{background:rgba(90,100,120,0.2);color:var(--muted);border:1px solid var(--border2);}
+.todo-actions{display:flex;gap:4px;flex-shrink:0;}
+
+/* STATUS BOARD */
+.status-row{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
+.status-row:last-child{border-bottom:none;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.s-ok{background:var(--green);}
+.s-warn{background:var(--yellow);}
+.s-err{background:var(--red);}
+.s-unk{background:var(--muted);}
+.status-name{font-size:12px;font-family:var(--font-b);margin-bottom:2px;}
+.status-detail{font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.5;}
+.status-right{flex-shrink:0;text-align:right;}
+.status-ms{font-size:11px;font-family:var(--font-m);margin-bottom:3px;}
+.sbadge{font-size:9px;font-family:var(--font-m);padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.5px;display:inline-block;}
+.sb-ok{background:rgba(0,212,170,0.1);color:var(--green);border:1px solid rgba(0,212,170,0.2);}
+.sb-warn{background:rgba(255,211,42,0.1);color:var(--yellow);border:1px solid rgba(255,211,42,0.2);}
+.sb-err{background:rgba(255,71,87,0.1);color:var(--red);border:1px solid rgba(255,71,87,0.2);}
+.sb-unk{background:rgba(90,100,120,0.1);color:var(--muted);border:1px solid var(--border2);}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:10px;max-width:700px;width:100%;max-height:88vh;display:flex;flex-direction:column;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:var(--font-d);font-size:18px;letter-spacing:1.5px;}
+.modal-body{padding:20px;overflow-y:auto;flex:1;}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+.prompt-box{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:16px;font-family:var(--font-m);font-size:12px;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;max-height:420px;overflow-y:auto;}
+.generating{display:flex;align-items:center;gap:12px;color:var(--muted);font-family:var(--font-m);font-size:12px;padding:24px 0;}
+.spinner{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+footer{text-align:center;padding:24px 0 16px;color:var(--muted);font-size:10px;font-family:var(--font-m);letter-spacing:1px;border-top:1px solid var(--border);margin-top:24px;}
+.timestamp{color:var(--accent);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo"><div class="logo-dot"></div>DDmap / Command Center</div>
+  <div class="header-meta">
+    <span>Refreshed <span class="timestamp" id="ts"></span></span>
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab(this,'overview')">Overview</button>
+  <button class="tab" onclick="setTab(this,'todo')">To-Do</button>
+  <button class="tab" onclick="setTab(this,'map')">Search Map</button>
+  <button class="tab" onclick="setTab(this,'crashes')">Crashes</button>
+  <button class="tab" onclick="setTab(this,'apis')">APIs &amp; Data</button>
+  <button class="tab" onclick="setTab(this,'revenue')">Revenue</button>
+  <button class="tab" onclick="setTab(this,'apicosts')">API Costs</button>
+  <button class="tab" onclick="setTab(this,'pnl')">P&amp;L</button>
+  <button class="tab" onclick="setTab(this,'valuation')">Valuation</button>
+</div>
+
+<div class="alert" id="alert-bar" style="display:none">
+  <div class="alert-dot"></div>
+  <span id="alert-bar-text"></span>
+</div>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="tab-overview">
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:var(--green)"><div class="kpi-label">MRR</div><div class="kpi-value" style="color:var(--green)" id="kpi-mrr">—</div><div class="kpi-delta" id="kpi-mrr-delta">Loading…</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent)"><div class="kpi-label">Active Users (28d)</div><div class="kpi-value" id="kpi-users">—</div><div class="kpi-delta" id="kpi-users-delta">Loading…</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent4)"><div class="kpi-label">Active Subscriptions</div><div class="kpi-value" style="color:var(--accent4)" id="kpi-subs">—</div><div class="kpi-delta" id="kpi-subs-delta">Loading…</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent3)"><div class="kpi-label">API Spend (mo)</div><div class="kpi-value" style="color:var(--accent3)" id="kpi-api-spend">$500</div><div class="kpi-delta delta-flat" id="kpi-api-spend-delta">Flat rate · ATTOM</div></div>
+    <div class="kpi" style="--kpi-color:var(--red)"><div class="kpi-label">Open Crashes</div><div class="kpi-value" id="kpi-overview-crashes">—</div><div class="kpi-delta" id="kpi-overview-crashes-delta">Loading…</div></div>
+    <div class="kpi" style="--kpi-color:var(--yellow)"><div class="kpi-label">Net Margin</div><div class="kpi-value" style="color:var(--yellow)" id="kpi-net-margin">—</div><div class="kpi-delta delta-flat">Live from P&amp;L</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Daily Active Users</div><span class="card-badge badge-blue">30d</span></div>
+      <div class="bar-chart" id="dau-chart"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;color:var(--muted);font-size:10px;font-family:var(--font-m)"><span>Apr 1</span><span>Apr 15</span><span>Apr 30</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Revenue by Tier</div><span class="card-badge badge-green">Live · RevenueCat</span></div>
+      <div id="overview-tier-breakdown">
+        <div class="rev-row"><div class="rev-tier"><div class="tier-dot" style="background:var(--muted)"></div><div><div class="rev-name">Loading…</div></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Conversion Funnel</div><span class="card-badge badge-purple">Last 30d</span></div>
+      <div id="funnel"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Service Status</div><span class="card-badge badge-green" id="overview-status-badge">Checking…</span></div>
+      <div style="font-family:var(--font-m);font-size:11px;line-height:2.2;color:var(--muted)" id="overview-status-list">
+        <div style="display:flex;justify-content:space-between"><span>ATTOM API</span><span id="ov-attom">● Checking…</span></div>
+        <div style="display:flex;justify-content:space-between"><span>RevenueCat</span><span id="ov-revenuecat">● Checking…</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Cloudflare Worker</span><span id="ov-worker">● Checking…</span></div>
+        <div style="display:flex;justify-content:space-between"><span>ddmap.us (Netlify)</span><span id="ov-netlify">● Checking…</span></div>
+        <div style="display:flex;justify-content:space-between"><span>App Store Connect</span><span id="ov-appstore">● Checking…</span></div>
+      </div>
+      <div style="margin-top:14px;font-size:10px;color:var(--muted);font-family:var(--font-m);letter-spacing:1px;margin-bottom:6px">UPTIME — PAST 30 DAYS</div>
+      <div class="uptime-blocks" id="uptime-blocks"></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Top Markets</div><span class="card-badge badge-blue" id="top-markets-badge">Loading…</span></div>
+      <div id="overview-top-markets"><div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">Loading beta search data…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Top Screens (7d)</div><span class="card-badge badge-orange" id="top-screens-badge">Loading…</span></div>
+      <div id="top-screens-list"><div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TO-DO ═══ -->
+<div id="tab-todo" style="display:none">
+  <div class="grid-32">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">DDmap To-Do</div>
+        <button class="btn btn-purple" onclick="genBatchPrompt()">✦ Sprint Prompt</button>
+      </div>
+      <div class="todo-input-row">
+        <input class="todo-input" id="todo-input" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTodo()"/>
+        <select id="todo-priority" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 10px;border-radius:4px;font-family:var(--font-m);font-size:11px;outline:none;">
+          <option value="high">High</option>
+          <option value="med" selected>Med</option>
+          <option value="low">Low</option>
+        </select>
+        <button class="btn btn-blue" onclick="addTodo()">Add</button>
+      </div>
+      <div id="todo-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Progress</div></div>
+      <div id="todo-stats"></div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div class="section-label">Known Open Issues</div>
+        <div style="font-size:11px;font-family:var(--font-m);line-height:2;color:var(--muted)">
+          <div style="color:var(--yellow)">● RevenueCat offerings not configured — paywall broken</div>
+          <div style="color:var(--yellow)">● Certificate pinning + jailbreak detection</div>
+          <div style="color:var(--yellow)">● IAP bug ref 6764722018 — open</div>
+          <div style="color:var(--muted)">● Privacy policy + Terms of Service</div>
+          <div style="color:var(--muted)">● App icon</div>
+          <div style="color:var(--muted)">● StoreKit config file for simulator testing</div>
+          <div style="color:var(--red)">● Remove sandbox Pro grant before App Store submission</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SEARCH MAP ═══ -->
+<div id="tab-map" style="display:none">
+  <div class="alert alert-info" id="map-alert"><div class="alert-dot"></div><span id="map-alert-text">Loading beta search data from Cloudflare KV…</span></div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title">Property Search Map</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="card-badge badge-blue" id="map-month-badge">This Month</span>
+        <span style="font-family:var(--font-m);font-size:11px;color:var(--muted)" id="map-count">Loading…</span>
+      </div>
+    </div>
+    <div id="search-map"></div>
+    <div style="display:flex;gap:20px;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--font-m);color:var(--muted)"><div style="width:9px;height:9px;border-radius:50%;background:var(--accent)"></div>Low activity</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--font-m);color:var(--muted)"><div style="width:13px;height:13px;border-radius:50%;background:var(--accent4)"></div>Medium</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--font-m);color:var(--muted)"><div style="width:17px;height:17px;border-radius:50%;background:var(--green)"></div>High activity</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Top Searched Cities</div><span class="card-badge badge-blue" id="map-cities-badge">Live · KV</span></div>
+      <div id="map-top-cities"><div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Search Volume by Endpoint</div><span class="card-badge badge-purple">ATTOM Calls · Live</span></div>
+      <div id="map-endpoint-breakdown"><div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CRASHES ═══ -->
+<div id="tab-crashes" style="display:none">
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:var(--red)"><div class="kpi-label">Open Issues</div><div class="kpi-value" style="color:var(--red)" id="kpi-open-issues">—</div><div class="kpi-delta" id="kpi-open-issues-delta">Loading…</div></div>
+    <div class="kpi" style="--kpi-color:var(--yellow)"><div class="kpi-label">Users Affected</div><div class="kpi-value" id="kpi-users-affected">—</div><div class="kpi-delta delta-flat">Across open issues</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent)"><div class="kpi-label">Total Occurrences</div><div class="kpi-value" id="kpi-occurrences">—</div><div class="kpi-delta delta-flat">Via Crashlytics</div></div>
+    <div class="kpi" style="--kpi-color:var(--green)"><div class="kpi-label">Crash-Free Users</div><div class="kpi-value">—</div><div class="kpi-delta delta-flat">Via Crashlytics</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Active Crash Reports</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="card-badge" id="crashes-badge">Loading…</span>
+        <button class="btn btn-ghost" onclick="fetchCrashes()">↻ Refresh</button>
+        <a href="https://console.firebase.google.com/project/ddmap-8ba65/crashlytics" target="_blank" class="btn btn-ghost">Open Crashlytics ↗</a>
+      </div>
+    </div>
+    <div id="crashes-list">
+      <div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:20px 0;text-align:center">Loading live crash data from Firebase…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APIs & DATA ═══ -->
+<div id="tab-apis" style="display:none">
+  <div class="alert alert-info"><div class="alert-dot"></div><span>Service status updates automatically every 5 minutes via live health checks.</span></div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Data Providers</div><button class="btn btn-ghost" onclick="fetchHealthcheck()">↻ Refresh</button></div>
+
+      <div class="status-row">
+        <div class="status-dot" id="dot-attom"></div>
+        <div style="flex:1"><div class="status-name">ATTOM Data Solutions</div><div class="status-detail">Premium Property Package · 9 endpoints · api.attomdata.com<br>Contract signed · SwiftData cached (30d ownership / 7d AVM)</div></div>
+        <div class="status-right"><div class="status-ms" id="ms-attom">—</div><div class="sbadge" id="badge-attom">Checking…</div></div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot" id="dot-revenuecat"></div>
+        <div style="flex:1"><div class="status-name">RevenueCat</div><div class="status-detail">Subscription management · 4 tiers configured · api.revenuecat.com<br>Free / Per Property $2.99 / Pro Mo $12.50 / Pro Annual $99</div></div>
+        <div class="status-right"><div class="status-ms" id="ms-revenuecat">—</div><div class="sbadge" id="badge-revenuecat">Checking…</div></div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot s-unk" id="dot-crashlytics"></div>
+        <div style="flex:1"><div class="status-name">Firebase Crashlytics</div><div class="status-detail" id="detail-crashlytics">iOS SDK integrated · Real-time crash monitoring · Checking…</div></div>
+        <div class="status-right"><div class="status-ms" style="color:var(--muted)">—</div><div class="sbadge sb-unk" id="badge-crashlytics">Checking…</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Infrastructure</div></div>
+
+      <div class="status-row">
+        <div class="status-dot" id="dot-worker"></div>
+        <div style="flex:1"><div class="status-name">Cloudflare Worker — ATTOM Proxy</div><div class="status-detail">API key proxy · Deployed · ddmap-attom-proxy.pcarney65.workers.dev<br>Proxying all ATTOM calls · 200s confirmed in production</div></div>
+        <div class="status-right"><div class="status-ms" id="ms-worker">—</div><div class="sbadge" id="badge-worker">Checking…</div></div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot" id="dot-netlify"></div>
+        <div style="flex:1"><div class="status-name">Netlify — ddmap.us</div><div class="status-detail">Landing page · Auto-deploy from main branch<br>Also hosts this dashboard (password-protect via Access Control)</div></div>
+        <div class="status-right"><div class="status-ms" id="ms-netlify">—</div><div class="sbadge" id="badge-netlify">Checking…</div></div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot" id="dot-appstore"></div>
+        <div style="flex:1"><div class="status-name">Apple App Store Connect</div><div class="status-detail">Enrolled · TestFlight beta (full Pro access for testers)<br>DDmap US LLC — Wyoming · parent Solstice Holdings Group</div></div>
+        <div class="status-right"><div class="status-ms" id="ms-appstore">—</div><div class="sbadge" id="badge-appstore">Checking…</div></div>
+      </div>
+
+      <div class="status-row">
+        <div class="status-dot s-ok"></div>
+        <div style="flex:1"><div class="status-name">Mercury Banking</div><div class="status-detail">DDmap US LLC business account · mercury.com</div></div>
+        <div class="status-right"><div class="status-ms">—</div><div class="sbadge sb-ok">Active</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">ATTOM Endpoint Registry</div><span class="card-badge badge-orange">9 Active</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:4px" id="attom-endpoints"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-header"><div class="card-title">Planned Integrations</div><span class="card-badge badge-purple">Roadmap</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:4px">
+      <div style="padding:12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border2)"><div style="font-size:12px;font-family:var(--font-b);margin-bottom:4px">Walk Score API</div><div style="font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.5">Walkability per property — queued feature</div><div class="sbadge sb-warn" style="margin-top:8px">Planned</div></div>
+      <div style="padding:12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border2)"><div style="font-size:12px;font-family:var(--font-b);margin-bottom:4px">School District Overlay</div><div style="font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.5">detailwithschools endpoint active — needs UI layer</div><div class="sbadge sb-warn" style="margin-top:8px">In Progress</div></div>
+      <div style="padding:12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border2)"><div style="font-size:12px;font-family:var(--font-b);margin-bottom:4px">Mixpanel / PostHog</div><div style="font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.5">Real user analytics SDK — replaces simulated data here</div><div class="sbadge sb-warn" style="margin-top:8px">Planned</div></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REVENUE ═══ -->
+<div id="tab-revenue" style="display:none">
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:var(--green)"><div class="kpi-label">MRR</div><div class="kpi-value" style="color:var(--green)" id="kpi-mrr-2">—</div><div class="kpi-delta delta-flat" id="kpi-mrr-delta-2">Live from RevenueCat</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent4)"><div class="kpi-label">ARR (projected)</div><div class="kpi-value" style="color:var(--accent4)" id="kpi-arr">—</div><div class="kpi-delta delta-flat">Based on current MRR</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent)"><div class="kpi-label">Trial → Paid Conv.</div><div class="kpi-value" id="kpi-conv-rate">—</div><div class="kpi-delta delta-flat" id="kpi-conv-rate-delta">Via PostHog</div></div>
+    <div class="kpi" style="--kpi-color:var(--red)"><div class="kpi-label">Monthly Churn</div><div class="kpi-value" id="kpi-churn">—</div><div class="kpi-delta delta-flat">Via PostHog</div></div>
+    <div class="kpi" style="--kpi-color:var(--yellow)"><div class="kpi-label">ARPU</div><div class="kpi-value" id="kpi-arpu">—</div><div class="kpi-delta delta-flat">MRR ÷ active users</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent3)"><div class="kpi-label">LTV (est.)</div><div class="kpi-value">$8.80</div><div class="kpi-delta delta-flat">CAC: ~$0</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">MRR Growth</div><span class="card-badge badge-green">RevenueCat</span></div>
+      <div class="bar-chart" id="mrr-chart"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;color:var(--muted);font-size:10px;font-family:var(--font-m)"><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Revenue by Tier</div>
+        <span class="card-badge badge-green" id="tier-badge">Live · 30d</span>
+      </div>
+      <div id="tier-breakdown">
+        <div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:20px 0;text-align:center">Loading…</div>
+      </div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;font-family:var(--font-m);color:var(--muted)">TOTAL (30d)</span>
+        <span style="font-family:var(--font-d);font-size:22px;color:var(--green)" id="tier-total">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ API COSTS ═══ -->
+<div id="tab-apicosts" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title">ATTOM Endpoint Usage</div>
+      <span class="card-badge badge-orange" id="apicosts-badge">Loading…</span>
+    </div>
+    <div class="api-row" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-m);padding-bottom:8px">
+      <span class="api-name">Endpoint</span>
+      <div class="api-bar-wrap" style="opacity:0"></div>
+      <span class="api-calls">Calls</span>
+      <span class="api-cost">Est. Cost</span>
+    </div>
+    <div id="apicosts-rows">
+      <div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:20px 0;text-align:center">Loading live data…</div>
+    </div>
+    <div class="api-row" style="border-top:1px solid var(--border2);padding-top:12px;margin-top:4px">
+      <span class="api-name"><strong>Total</strong></span>
+      <div class="api-bar-wrap" style="opacity:0"></div>
+      <span class="api-calls" id="apicosts-total-calls">—</span>
+      <span class="api-cost" style="font-family:var(--font-d);font-size:16px;color:var(--accent3)" id="apicosts-total-cost">—</span>
+    </div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:var(--accent)"><div class="kpi-label">Cache Hit Rate</div><div class="kpi-value" id="kpi-cache-hit">—</div><div class="kpi-delta" id="kpi-cache-hit-delta">Via PostHog</div></div>
+    <div class="kpi" style="--kpi-color:var(--green)"><div class="kpi-label">Calls Saved by Cache</div><div class="kpi-value" id="kpi-calls-saved">—</div><div class="kpi-delta" id="kpi-calls-saved-delta">Via PostHog</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent3)"><div class="kpi-label">Total Cost (mo)</div><div class="kpi-value" id="kpi-apicost">—</div><div class="kpi-delta delta-flat" id="kpi-apicost-delta">Live from KV</div></div>
+    <div class="kpi" style="--kpi-color:var(--red)"><div class="kpi-label">API Errors</div><div class="kpi-value">—</div><div class="kpi-delta delta-flat">Via Crashlytics</div></div>
+  </div>
+</div>
+
+<!-- ═══ P&L ═══ -->
+<div id="tab-pnl" style="display:none">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Revenue</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge badge-green" id="pnl-month-badge">Loading…</span>
+          <button class="btn btn-green" style="font-size:10px" onclick="addPnlItem('revenue')">+ Add</button>
+        </div>
+      </div>
+      <div class="pnl-row"><span class="pnl-label">Pro Annual</span><span class="pnl-value" style="color:var(--green)" id="pnl-annual">—</span></div>
+      <div class="pnl-row"><span class="pnl-label">Pro Monthly</span><span class="pnl-value" style="color:var(--green)" id="pnl-monthly">—</span></div>
+      <div class="pnl-row"><span class="pnl-label">Per Property</span><span class="pnl-value" style="color:var(--green)" id="pnl-perprop">—</span></div>
+      <div id="pnl-custom-revenue-rows"></div>
+      <div class="pnl-row" style="border-top:1px solid var(--border2);margin-top:4px;padding-top:12px"><span class="pnl-label"><strong>Gross Revenue</strong></span><span class="pnl-value" style="color:var(--green);font-size:22px" id="pnl-gross">—</span></div>
+      <div class="pnl-row"><span class="pnl-label">Apple 30% cut</span><span class="pnl-value" style="color:var(--red)" id="pnl-apple-cut">—</span></div>
+      <div class="pnl-row"><span class="pnl-label"><strong>Net Revenue</strong></span><span class="pnl-value" style="color:var(--green);font-size:22px" id="pnl-net-revenue">—</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Expenses</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge badge-orange" id="pnl-month-badge-2">Loading…</span>
+          <button class="btn btn-ghost" style="font-size:10px" onclick="addPnlItem('expense')">+ Add</button>
+        </div>
+      </div>
+      <div class="pnl-row"><span class="pnl-label">ATTOM Data</span><span class="pnl-value" style="color:var(--accent3)" id="pnl-attom">—</span></div>
+      <div class="pnl-row"><span class="pnl-label">Apple Developer</span><span class="pnl-value" style="color:var(--accent3)">$8.25</span></div>
+      <div class="pnl-row"><span class="pnl-label">Netlify</span><span class="pnl-value" style="color:var(--accent3)">$0.00</span></div>
+      <div class="pnl-row"><span class="pnl-label">RevenueCat</span><span class="pnl-value" style="color:var(--accent3)">$0.00</span></div>
+      <div class="pnl-row"><span class="pnl-label">Cloudflare Workers</span><span class="pnl-value" style="color:var(--accent3)">$0.00</span></div>
+      <div id="pnl-custom-expense-rows"></div>
+      <div class="pnl-row" style="border-top:1px solid var(--border2);margin-top:4px;padding-top:12px"><span class="pnl-label"><strong>Total Expenses</strong></span><span class="pnl-value" style="color:var(--accent3);font-size:22px" id="pnl-total-expenses">—</span></div>
+      <div class="pnl-row"><span class="pnl-label"><strong style="color:var(--yellow)">Net Profit</strong></span><span class="pnl-value" style="color:var(--yellow);font-size:22px" id="pnl-net-profit">—</span></div>
+      <div class="pnl-row"><span class="pnl-label">Margin</span><span class="pnl-value" style="color:var(--yellow)" id="pnl-margin">—</span></div>
+    </div>
+  </div>
+
+  <!-- Add Item Modal (inline) -->
+  <div id="pnl-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:24px;width:360px;max-width:90vw;">
+      <div style="font-family:var(--font-d);font-size:18px;letter-spacing:1.5px;margin-bottom:16px" id="pnl-modal-title">Add Expense</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-family:var(--font-m);color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Label</div>
+        <input id="pnl-item-label" class="todo-input" style="width:100%" placeholder="e.g. Registered Agent, Domain, Trademark…"/>
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:10px;font-family:var(--font-m);color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Monthly Amount ($)</div>
+        <input id="pnl-item-amount" class="todo-input" style="width:100%" type="number" step="0.01" placeholder="0.00"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closePnlModal()">Cancel</button>
+        <button class="btn btn-blue" id="pnl-modal-save" onclick="savePnlItem()">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VALUATION ═══ -->
+<div id="tab-valuation" style="display:none">
+  <div class="alert alert-info"><div class="alert-dot"></div><span>Illustrative only — based on live DDmap metrics and public PropTech/SaaS comp multiples. Not a formal appraisal.</span></div>
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:var(--green);grid-column:span 2">
+      <div class="kpi-label">Implied Valuation Range</div>
+      <div class="kpi-value" style="color:var(--green);font-size:44px" id="val-range">—</div>
+      <div class="kpi-delta delta-flat" style="font-size:12px" id="val-range-sub">Blended across 4 methodologies · Live metrics</div>
+    </div>
+    <div class="kpi" style="--kpi-color:var(--accent4)"><div class="kpi-label">MRR Multiple Midpoint</div><div class="kpi-value" style="color:var(--accent4)" id="val-mrr-mid">—</div><div class="kpi-delta delta-flat">~75× MRR</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent)"><div class="kpi-label">ARR Multiple Midpoint</div><div class="kpi-value" style="color:var(--accent)" id="val-arr-mid">—</div><div class="kpi-delta delta-flat">~6.25× ARR</div></div>
+    <div class="kpi" style="--kpi-color:var(--yellow)"><div class="kpi-label">DCF (5yr, 15%)</div><div class="kpi-value" style="color:var(--yellow)" id="val-dcf">—</div><div class="kpi-delta delta-flat">80% YoY yr1</div></div>
+    <div class="kpi" style="--kpi-color:var(--accent3)"><div class="kpi-label">User-Based $/MAU</div><div class="kpi-value" style="color:var(--accent3)" id="val-mau">—</div><div class="kpi-delta delta-flat">$200/MAU median</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Revenue Multiple Analysis</div><span class="card-badge badge-blue" id="val-table-badge">Live · RevenueCat</span></div>
+      <div id="val-revenue-table"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Scenario Bridge</div><span class="card-badge badge-orange" id="val-bridge-badge">75× MRR</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px" id="val-bridge"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:0">
+    <div class="card-header">
+      <div class="card-title">Investor Pitch Deck</div>
+      <span class="card-badge badge-purple">Auto-Generated</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+      <div style="font-size:12px;font-family:var(--font-m);color:var(--muted);line-height:1.8;max-width:520px">
+        Generates a clean 8-slide PowerPoint pitch deck using live DDmap metrics — MRR, users, valuation scenarios, API stack, and traction. Suitable for investor or acquisition conversations.
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+        <button class="btn btn-green" style="font-size:12px;padding:8px 20px;letter-spacing:1px" onclick="generatePitchDeck()" id="pitch-btn">↓ Generate Pitch Deck</button>
+        <div id="pitch-status" style="font-size:10px;font-family:var(--font-m);color:var(--muted);text-align:right"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="prompt-modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Generated Prompt</div>
+      <button class="btn btn-ghost" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body"><div id="modal-content"></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+      <button class="btn btn-blue" id="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
+    </div>
+  </div>
+</div>
+
+<footer>DDmap Command Center — Solstice Holdings Group LLC &nbsp;·&nbsp; <span class="timestamp" id="ts2"></span></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// TIMESTAMP
+function now(){return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function tick(){const t=now();['ts','ts2'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=t;});}
+tick();setInterval(tick,1000);
+
+// REVENUECAT LIVE DATA
+async function fetchRevenueCat(){
+  try {
+    const res = await fetch('/.netlify/functions/revenuecat');
+    const data = await res.json();
+    const metrics = data.metrics || [];
+    const get = (id) => metrics.find(m => m.id === id)?.value ?? 0;
+
+    const mrr  = get('mrr');
+    const subs = get('active_subscriptions');
+    const users = get('active_users');
+    const newCustomers = get('new_customers');
+
+    const fmtDollar = (v) => v === 0 ? '$0' : '$' + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const mrrFmt = mrr === 0 ? '$0' : '$' + Math.round(mrr).toLocaleString();
+
+    // Overview KPIs
+    const set = (id,val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    set('kpi-mrr', mrrFmt);
+    set('kpi-mrr-2', mrrFmt);
+    set('kpi-users', users.toLocaleString());
+    set('kpi-subs', subs.toLocaleString());
+
+    const mrrDelta = document.getElementById('kpi-mrr-delta');
+    const usersDelta = document.getElementById('kpi-users-delta');
+    const subsDelta = document.getElementById('kpi-subs-delta');
+    if(mrrDelta){ mrrDelta.textContent = mrr===0?'No paid subs yet':'Live from RevenueCat'; mrrDelta.className='kpi-delta '+(mrr>0?'delta-up':'delta-flat'); }
+    if(usersDelta){ usersDelta.textContent = newCustomers+' new (28d)'; usersDelta.className='kpi-delta delta-up'; }
+    if(subsDelta){ subsDelta.textContent = subs===0?'Pending App Store approval':'Active subscribers'; subsDelta.className='kpi-delta '+(subs>0?'delta-up':'delta-flat'); }
+
+    // Revenue tab — ARR + ARPU
+    set('kpi-arr', '$'+Math.round(mrr*12).toLocaleString());
+    set('kpi-arpu', users>0 ? fmtDollar(mrr/users) : '$0');
+
+    // Overview Revenue by Tier card — wire to live tier data
+    const tierData = data.revenueByTier;
+    const overviewTierEl = document.getElementById('overview-tier-breakdown');
+    if(overviewTierEl && tierData){
+      const totalRev = tierData.reduce((s,t)=>s+t.revenue,0);
+      const tierColors = {'com.ddmap.pro.annual':'var(--accent4)','com.ddmap.pro.monthly':'var(--accent)','com.ddmap.unlock.property':'var(--accent3)'};
+      overviewTierEl.innerHTML = tierData.map(t=>{
+        const pct = totalRev>0 ? Math.round((t.revenue/totalRev)*100) : 0;
+        const barW = totalRev>0 ? Math.max((t.revenue/totalRev)*85,t.revenue>0?4:0) : 0;
+        const c = tierColors[t.productId]||'var(--muted)';
+        return `<div class="rev-row"><div class="rev-tier"><div class="tier-dot" style="background:${c}"></div><div><div class="rev-name">${t.name}</div><div class="rev-count">${pct}% of revenue</div></div></div><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:${barW}px;background:${c};opacity:0.7"></div></div><div class="rev-amount" style="color:${c}">${fmtDollar(t.revenue)}</div></div>`;
+      }).join('') + `<div class="rev-row"><div class="rev-tier"><div class="tier-dot" style="background:var(--muted)"></div><div><div class="rev-name">Free</div><div class="rev-count">${users - subs} users</div></div></div><div class="rev-bar-wrap"><div class="rev-bar-fill" style="width:0px"></div></div><div class="rev-amount" style="color:var(--muted)">$0</div></div>`;
+    }
+
+    // Revenue tab tier breakdown card
+    const tierEl = document.getElementById('tier-breakdown');
+    const tierTotalEl = document.getElementById('tier-total');
+    const tierBadge = document.getElementById('tier-badge');
+    if(tierEl){
+      if(!tierData){
+        tierEl.innerHTML=`<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;line-height:1.7">Revenue breakdown by tier requires the RevenueCat Charts API.<br><span style="color:var(--accent)">Available on Growth plan and above.</span></div>`;
+        if(tierBadge){tierBadge.textContent='Unavailable';tierBadge.className='card-badge badge-orange';}
+      } else {
+        const totalRev=tierData.reduce((s,t)=>s+t.revenue,0);
+        if(tierTotalEl) tierTotalEl.textContent=fmtDollar(totalRev);
+        if(tierBadge){tierBadge.textContent='Live · 30d';tierBadge.className='card-badge badge-green';}
+        tierEl.innerHTML=tierData.map(tier=>{
+          const pct=totalRev>0?Math.round((tier.revenue/totalRev)*100):0;
+          const barWidth=totalRev>0?Math.max((tier.revenue/totalRev)*80,tier.revenue>0?4:0):0;
+          return `<div class="rev-row"><div class="rev-tier"><div class="tier-dot" style="background:${tier.color}"></div><div><div class="rev-name">${tier.name}</div><div class="rev-count">${pct}% of revenue</div></div></div><div class="rev-bar-wrap" style="max-width:100px"><div class="rev-bar-fill" style="width:${barWidth}px;background:${tier.color};opacity:0.7"></div></div><div class="rev-amount" style="color:${tier.color}">${fmtDollar(tier.revenue)}</div></div>`;
+        }).join('');
+      }
+    }
+
+    // MRR Growth chart + Valuation
+    if (mrr >= 0) {
+      renderMrrChart(mrr);
+      updateValuation(mrr, mrr * 12, users);
+    }
+
+    console.log('[RevenueCat] MRR:',mrrFmt,'| Users:',users,'| Subs:',subs);
+  } catch(e) {
+    console.error('[RevenueCat] fetch failed:',e.message);
+    ['kpi-mrr','kpi-users','kpi-subs'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';});
+  }
+}
+fetchRevenueCat();
+setInterval(fetchRevenueCat, 5 * 60 * 1000); // refresh every 5 min
+
+// TABS
+const TABS=['overview','todo','map','crashes','apis','revenue','apicosts','pnl','valuation'];
+function setTab(btn,name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  TABS.forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display=t===name?'':'none';});
+  if(name==='map')setTimeout(initMap,80);
+}
+function setTabByName(name){
+  const idx=TABS.indexOf(name);
+  if(idx>=0)setTab(document.querySelectorAll('.tab')[idx],name);
+}
+
+// CHARTS
+(function(){
+  const dauData=[42,55,61,48,70,82,75,90,85,78,95,102,88,110,120,108,95,115,130,122,140,135,128,150,145,138,160,155,148,170];
+  const max=Math.max(...dauData);
+  const c=document.getElementById('dau-chart');
+  dauData.forEach(v=>{const b=document.createElement('div');b.className='bar';b.style.height=(v/max*100)+'%';b.style.setProperty('--bar-color','var(--accent)');c.appendChild(b);});
+})();
+
+// FUNNEL
+(function(){
+  const data=[{l:'App Download',p:100,n:'1,240',c:'var(--accent)'},{l:'Onboarding Done',p:81,n:'1,004',c:'var(--accent)'},{l:'Property Searched',p:68,n:'843',c:'var(--accent4)'},{l:'Paywall Seen',p:41,n:'508',c:'var(--accent4)'},{l:'Trial Started',p:22,n:'273',c:'var(--accent3)'},{l:'Converted Paid',p:10,n:'124',c:'var(--green)'}];
+  const el=document.getElementById('funnel');
+  data.forEach(f=>{el.innerHTML+=`<div class="funnel-row"><span class="funnel-label">${f.l}</span><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${f.p}%;background:${f.c}">${f.n}</div></div><span class="funnel-pct">${f.p}%</span></div>`;});
+})();
+
+// UPTIME
+(function(){
+  const el=document.getElementById('uptime-blocks');
+  for(let i=0;i<30;i++){const b=document.createElement('div');b.className='uptime-block'+(i===7?' partial':'');el.appendChild(b);}
+})();
+
+// MRR CHART — localStorage snapshot history, builds over time
+function renderMrrChart(mrr) {
+  // Load history, append/update current month
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem('ddmap-mrr-history') || '[]'); } catch(e) {}
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const existing = history.findIndex(h => h.m === monthKey);
+  if (existing >= 0) history[existing].v = mrr;
+  else history.push({ m: monthKey, v: mrr });
+  // Keep last 6 months only
+  history = history.sort((a,b)=>a.m.localeCompare(b.m)).slice(-6);
+  try { localStorage.setItem('ddmap-mrr-history', JSON.stringify(history)); } catch(e) {}
+
+  const c = document.getElementById('mrr-chart');
+  const labels = document.querySelector('#tab-revenue .bar-chart + div');
+  if (!c) return;
+  c.innerHTML = '';
+  if (history.length === 0) return;
+  const max = Math.max(...history.map(h => h.v), 1);
+  history.forEach(h => {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.height = (h.v / max * 100) + '%';
+    b.style.setProperty('--bar-color', 'var(--green)');
+    b.title = h.m + ': $' + Math.round(h.v).toLocaleString();
+    c.appendChild(b);
+  });
+  // Update month labels
+  if (labels) {
+    const months = history.map(h => {
+      const [y, mo] = h.m.split('-');
+      return new Date(parseInt(y), parseInt(mo) - 1).toLocaleDateString('en-US', { month: 'short' });
+    });
+    // Distribute labels across the bar chart width
+    const spans = labels.querySelectorAll('span');
+    if (spans.length >= 2) {
+      spans[0].textContent = months[0] || '';
+      spans[1].textContent = months[Math.floor(months.length / 2)] || '';
+      spans[2].textContent = months[months.length - 1] || '';
+    }
+  }
+}
+
+// VALUATION — computed from live RevenueCat data
+function updateValuation(mrr, arr, mau) {
+  const fmtK = v => v >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M' : '$' + Math.round(v/1000) + 'K';
+  const fmtBasis = v => '$' + Math.round(v).toLocaleString();
+
+  // Four methodologies
+  const mrrMid   = mrr * 75;
+  const arrMid   = arr * 6.25;
+  const mauVal   = mau * 200;
+
+  // DCF: 5yr, 15% discount rate, 80% YoY growth yr1 decelerating
+  let dcf = 0;
+  let annualProfit = arr * 0.3; // rough 30% margin assumption pre-scale
+  const growthRates = [0.8, 0.5, 0.35, 0.25, 0.15];
+  const discount = 0.15;
+  for (let i = 0; i < 5; i++) {
+    annualProfit *= (1 + growthRates[i]);
+    dcf += annualProfit / Math.pow(1 + discount, i + 1);
+  }
+
+  const allVals = [mrrMid, arrMid, mauVal, dcf].filter(v => v > 0);
+  const low  = allVals.length ? Math.min(...allVals) : 0;
+  const high = allVals.length ? Math.max(...allVals) : 0;
+
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('val-range',   fmtK(low) + ' – ' + fmtK(high));
+  set('val-range-sub', 'Blended across 4 methodologies · Live ' + new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}) + ' metrics');
+  set('val-mrr-mid', fmtK(mrrMid));
+  set('val-arr-mid', fmtK(arrMid));
+  set('val-dcf',     fmtK(dcf));
+  set('val-mau',     fmtK(mauVal));
+
+  // Revenue multiple table
+  const tableEl = document.getElementById('val-revenue-table');
+  if (tableEl) {
+    const rows = [
+      { label: 'Bear — Early SaaS',    mult: '3× ARR',  basis: fmtBasis(arr),  val: arr * 3,    c: 'var(--red)' },
+      { label: 'Base — PropTech Median',mult: '6× ARR',  basis: fmtBasis(arr),  val: arr * 6,    c: 'var(--accent)' },
+      { label: 'Bull — High-Growth',    mult: '12× ARR', basis: fmtBasis(arr),  val: arr * 12,   c: 'var(--accent4)' },
+      { label: 'MRR Bear',              mult: '36× MRR', basis: fmtBasis(mrr),  val: mrr * 36,   c: 'var(--red)' },
+      { label: 'MRR Base',              mult: '75× MRR', basis: fmtBasis(mrr),  val: mrr * 75,   c: 'var(--accent)' },
+      { label: 'MRR Bull',              mult: '120× MRR',basis: fmtBasis(mrr),  val: mrr * 120,  c: 'var(--yellow)' },
+    ];
+    const header = `<div style="font-size:10px;font-family:var(--font-m);color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:grid;grid-template-columns:1fr 80px 80px 80px;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px"><span>Scenario</span><span style="text-align:right">Multiple</span><span style="text-align:right">Basis</span><span style="text-align:right">Value</span></div>`;
+    tableEl.innerHTML = header + rows.map((r, i) =>
+      `<div style="display:grid;grid-template-columns:1fr 80px 80px 80px;gap:4px;padding:9px 0;${i<rows.length-1?'border-bottom:1px solid var(--border);':''}align-items:center">
+        <span style="font-size:12px">${r.label}</span>
+        <span style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--muted)">${r.mult}</span>
+        <span style="text-align:right;font-family:var(--font-m);font-size:12px;color:var(--muted)">${r.basis}</span>
+        <span style="text-align:right;font-family:var(--font-d);font-size:16px;color:${r.c}">${fmtK(r.val)}</span>
+      </div>`
+    ).join('');
+  }
+
+  // Scenario bridge
+  const bridgeEl = document.getElementById('val-bridge');
+  if (bridgeEl) {
+    const mrrLabel = '$' + Math.round(mrr).toLocaleString();
+    const sc = [
+      { l: `Today — ${mrrLabel} MRR`, v: mrr * 75,     c: 'var(--muted)' },
+      { l: '$1K MRR',                 v: 1000 * 75,    c: 'var(--accent3)' },
+      { l: '$5K MRR',                 v: 5000 * 75,    c: 'var(--accent)' },
+      { l: '$10K MRR',                v: 10000 * 75,   c: 'var(--accent4)' },
+      { l: '$25K MRR',                v: 25000 * 75,   c: 'var(--green)' },
+      { l: '$50K MRR',                v: 50000 * 75,   c: 'var(--yellow)' },
+    ];
+    const mx = sc[sc.length - 1].v;
+    bridgeEl.innerHTML = sc.map(s => {
+      const pct = Math.max((s.v / mx) * 100, 3);
+      return `<div style="display:flex;align-items:center;gap:10px"><div style="font-size:10px;font-family:var(--font-m);color:var(--muted);min-width:120px;white-space:nowrap">${s.l}</div><div style="flex:1;background:var(--surface2);border-radius:3px;height:22px;overflow:hidden"><div style="width:${pct}%;background:${s.c};height:100%;opacity:0.75;border-radius:3px"></div></div><div style="font-family:var(--font-d);font-size:16px;color:${s.c};min-width:72px;text-align:right;letter-spacing:1px">${fmtK(s.v)}</div></div>`;
+    }).join('');
+  }
+}
+
+// ATTOM ENDPOINTS — live from KV (populated by fetchApiCosts), static metadata
+const ATTOM_META = {
+  'property/detail':       { cache: '30d', desc: 'Full property record' },
+  'avm/detail':            { cache: '7d',  desc: 'Automated valuation model' },
+  'sale/snapshot':         { cache: '30d', desc: 'Recent sales comps' },
+  'homeequity':            { cache: '30d', desc: 'Equity & LTV data' },
+  'rentalavm':             { cache: '7d',  desc: 'Rental valuation model' },
+  'preforeclosuredetail':  { cache: '30d', desc: 'Lis pendens / preforeclosure' },
+  'assessmenthistory/detail':{ cache: '30d', desc: 'Tax assessment history' },
+  'expandedhistory':       { cache: '30d', desc: 'Extended ownership history' },
+  'detailwithschools':     { cache: '30d', desc: 'Property + school district' },
+};
+
+function renderAttomRegistry(endpoints) {
+  const el = document.getElementById('attom-endpoints');
+  if (!el) return;
+  const badge = document.querySelector('#tab-apis .card-header .card-badge');
+
+  if (!endpoints || endpoints.length === 0) {
+    // No KV data yet — render static list with 0 calls
+    const entries = Object.entries(ATTOM_META);
+    el.innerHTML = entries.map(([name, meta]) =>
+      `<div style="padding:10px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border2);border-left:3px solid var(--green)">
+        <div style="font-size:11px;font-family:var(--font-m);color:var(--text);margin-bottom:3px">${name}</div>
+        <div style="font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.6">${meta.desc}<br>Cache: ${meta.cache} · No calls yet</div>
+      </div>`
+    ).join('');
+    return;
+  }
+
+  el.innerHTML = endpoints.map(ep => {
+    const meta = ATTOM_META[ep.name] || { cache: '—', desc: '' };
+    const costColor = ep.cost > 50 ? 'var(--red)' : ep.cost > 20 ? 'var(--yellow)' : 'var(--green)';
+    return `<div style="padding:10px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border2);border-left:3px solid ${costColor}">
+      <div style="font-size:11px;font-family:var(--font-m);color:var(--text);margin-bottom:3px">${ep.name}</div>
+      <div style="font-size:10px;font-family:var(--font-m);color:var(--muted);line-height:1.6">${meta.desc || ''}<br>Cache: ${meta.cache} · <span style="color:var(--text)">${ep.calls.toLocaleString()} calls</span> · <span style="color:${costColor}">$${ep.cost.toFixed(2)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// MAP — live from Cloudflare KV via locations.js
+let mapInited=false;
+let mapInstance=null;
+let locationsData=[];
+
+async function fetchLocations(){
+  try {
+    const res = await fetch('/.netlify/functions/locations');
+    const data = await res.json();
+    locationsData = data.cities || [];
+
+    const month = data.month || '';
+    const totalSearches = locationsData.reduce((s,c)=>s+c.count,0);
+
+    // Update map alert
+    const alertEl = document.getElementById('map-alert');
+    const alertText = document.getElementById('map-alert-text');
+    if(locationsData.length === 0){
+      if(alertEl){ alertEl.style.display='flex'; alertEl.className='alert alert-info'; }
+      if(alertText) alertText.textContent = 'No beta search data yet. Data populates automatically as testers use the app.';
+    } else {
+      if(alertEl) alertEl.style.display='none';
+    }
+
+    // Update month badges
+    const monthLabel = month ? month : new Date().toISOString().slice(0,7);
+    ['map-month-badge','map-cities-badge'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ el.textContent=monthLabel+' · Live'; el.className='card-badge badge-green'; }
+    });
+
+    // Map count
+    const mapCount = document.getElementById('map-count');
+    if(mapCount) mapCount.textContent = locationsData.length+' cities · '+totalSearches.toLocaleString()+' searches';
+
+    // Render Top Searched Cities (Search Map tab)
+    const citiesEl = document.getElementById('map-top-cities');
+    if(citiesEl){
+      if(locationsData.length===0){
+        citiesEl.innerHTML='<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">No data yet — searches will appear here automatically.</div>';
+      } else {
+        const maxCount = Math.max(...locationsData.map(c=>c.count),1);
+        citiesEl.innerHTML = locationsData.slice(0,8).map(c=>{
+          const pct = Math.round((c.count/maxCount)*100);
+          return `<div class="api-row"><span class="api-name">${c.name}, ${c.state}</span><div class="api-bar-wrap"><div class="api-bar-fill" style="width:${pct}%"></div></div><span class="api-calls">${c.count.toLocaleString()}</span></div>`;
+        }).join('');
+      }
+    }
+
+    // Render Overview Top Markets
+    const marketsEl = document.getElementById('overview-top-markets');
+    const marketsBadge = document.getElementById('top-markets-badge');
+    if(marketsEl){
+      if(locationsData.length===0){
+        marketsEl.innerHTML='<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:10px 0">No beta data yet</div>';
+        if(marketsBadge){ marketsBadge.textContent='Pending'; marketsBadge.className='card-badge badge-orange'; }
+      } else {
+        const maxCount = Math.max(...locationsData.map(c=>c.count),1);
+        marketsEl.innerHTML = locationsData.slice(0,5).map(c=>{
+          const pct = Math.round((c.count/maxCount)*100);
+          return `<div class="api-row"><span class="api-name">${c.name}, ${c.state}</span><div class="api-bar-wrap"><div class="api-bar-fill" style="width:${pct}%"></div></div><span class="api-calls">${c.count.toLocaleString()}</span></div>`;
+        }).join('');
+        if(marketsBadge){ marketsBadge.textContent='Live · KV'; marketsBadge.className='card-badge badge-green'; }
+      }
+    }
+
+    // If map tab is currently visible, refresh markers
+    if(mapInstance && locationsData.length > 0) renderMapMarkers();
+
+    console.log('[Locations] cities:', locationsData.length, '| total searches:', totalSearches);
+  } catch(e) {
+    console.error('[Locations] fetch failed:', e.message);
+    const alertText = document.getElementById('map-alert-text');
+    if(alertText) alertText.textContent = 'Could not load search data — check Netlify function logs.';
+  }
+}
+
+function renderMapMarkers(){
+  if(!mapInstance) return;
+  // Clear existing markers
+  mapInstance.eachLayer(layer=>{ if(layer instanceof L.CircleMarker) mapInstance.removeLayer(layer); });
+
+  if(locationsData.length === 0) return;
+  const maxCount = Math.max(...locationsData.map(c=>c.count),1);
+  locationsData.forEach(loc=>{
+    if(!loc.lat || !loc.lng) return;
+    const ratio = loc.count / maxCount;
+    const r = ratio >= 0.6 ? 18 : ratio >= 0.25 ? 13 : 9;
+    const color = ratio >= 0.6 ? '#00d4aa' : ratio >= 0.25 ? '#c084fc' : '#3b7cff';
+    L.circleMarker([loc.lat, loc.lng],{radius:r,color,fillColor:color,fillOpacity:0.55,weight:1.5})
+      .bindPopup(`<div style="font-family:monospace;font-size:12px;background:#111418;color:#e8edf5;padding:8px 12px;border-radius:4px;border:1px solid #2a3140"><strong>${loc.name}, ${loc.state}</strong><br/>${loc.count.toLocaleString()} searches this month</div>`)
+      .addTo(mapInstance);
+  });
+}
+
+function initMap(){
+  if(mapInited)return; mapInited=true;
+  mapInstance = L.map('search-map',{center:[30,-82],zoom:5,scrollWheelZoom:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',
+    subdomains:'abcd',
+    maxZoom:19
+  }).addTo(mapInstance);
+  renderMapMarkers();
+}
+
+// TODO
+let todos=[];
+try{todos=JSON.parse(localStorage.getItem('ddmap-todos')||'[]');}catch(e){}
+if(!todos.length){
+  todos=[
+    {id:1,text:'Fix black screen on app relaunch (SwiftData context reinit)',priority:'high',done:false},
+    {id:2,text:'Fix recent searches not populating on Home screen',priority:'high',done:false},
+    {id:3,text:'Debug mortgage data not displaying despite endpoint added',priority:'high',done:false},
+    {id:4,text:'Set up Cloudflare Worker proxy for ATTOM key (pre-launch blocker)',priority:'high',done:true},
+    {id:5,text:'RevenueCat server-side receipt validation',priority:'high',done:false},
+    {id:6,text:'Certificate pinning + jailbreak detection',priority:'med',done:false},
+    {id:7,text:'Privacy policy page',priority:'med',done:false},
+    {id:8,text:'Terms of Service with data disclaimer',priority:'med',done:false},
+    {id:9,text:'App icon implementation',priority:'med',done:false},
+    {id:10,text:'Onboarding screen',priority:'med',done:false},
+    {id:11,text:'ddmap.com landing page',priority:'low',done:false},
+    {id:12,text:'Price history chart',priority:'low',done:false},
+    {id:13,text:'Portfolio PDF export (Pro only)',priority:'low',done:false},
+  ];
+  saveTodos();
+}
+function saveTodos(){try{localStorage.setItem('ddmap-todos',JSON.stringify(todos));}catch(e){}}
+function renderTodos(){
+  const el=document.getElementById('todo-list');
+  if(!el)return;
+  const sorted=[...todos.filter(t=>!t.done),...todos.filter(t=>t.done)];
+  if(!sorted.length){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center;font-family:var(--font-m)">All clear ✓</div>';renderTodoStats();return;}
+  el.innerHTML='';
+  sorted.forEach(t=>{
+    const pc=t.priority==='high'?'p-high':t.priority==='med'?'p-med':'p-low';
+    el.innerHTML+=`<div class="todo-item"><div class="todo-check${t.done?' done':''}" onclick="toggleTodo(${t.id})">${t.done?'✓':''}</div><span class="todo-text${t.done?' done':''}">${t.text}</span><span class="todo-priority ${pc}">${t.priority}</span><div class="todo-actions"><button class="btn btn-purple" style="font-size:9px;padding:3px 8px" onclick="genTodoPrompt(${t.id})" title="Generate Claude prompt">✦</button><button class="btn btn-ghost" style="font-size:9px;padding:3px 8px" onclick="deleteTodo(${t.id})">✕</button></div></div>`;
+  });
+  renderTodoStats();
+}
+function renderTodoStats(){
+  const el=document.getElementById('todo-stats');if(!el)return;
+  const total=todos.length,done=todos.filter(t=>t.done).length,high=todos.filter(t=>t.priority==='high'&&!t.done).length;
+  const pct=total?Math.round(done/total*100):0;
+  el.innerHTML=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted)"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Total tasks</span><span style="color:var(--text)">${total}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Completed</span><span style="color:var(--green)">${done}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Open critical</span><span style="color:var(--red)">${high}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span>Progress</span><span style="color:var(--accent)">${pct}%</span></div><div style="background:var(--surface2);border-radius:3px;height:6px;overflow:hidden"><div style="width:${pct}%;background:var(--green);height:100%;border-radius:3px;transition:width 0.5s"></div></div></div>`;
+}
+function addTodo(){
+  const inp=document.getElementById('todo-input'),pri=document.getElementById('todo-priority').value,text=inp.value.trim();
+  if(!text)return;
+  todos.unshift({id:Date.now(),text,priority:pri,done:false});
+  saveTodos();renderTodos();inp.value='';
+}
+function toggleTodo(id){const t=todos.find(x=>x.id===id);if(t){t.done=!t.done;saveTodos();renderTodos();}}
+function deleteTodo(id){todos=todos.filter(x=>x.id!==id);saveTodos();renderTodos();}
+renderTodos();
+
+// CRASHES DATA
+const crashes=[
+  {title:'EXC_BAD_ACCESS — PropertyDetailView.swift:284',sev:'CRITICAL',users:3,device:'iPhone 15 Pro / iOS 18.2',age:'2h ago',detail:'Thread 1: EXC_BAD_ACCESS (SIGSEGV) · KERN_INVALID_ADDRESS at 0x0000000000000010. Likely force-unwrapped optional nil in property data binding on PropertyDetailView.',file:'PropertyDetailView.swift',line:284,status:'Open'},
+  {title:'Fatal error: SwiftData fetch nil — HomeViewModel.swift:112',sev:'INVESTIGATING',users:1,device:'iPhone 14 / iOS 18.1',age:'1d ago',detail:'Fatal error: Unexpectedly found nil while unwrapping an Optional value. Triggered on app relaunch after background termination. Likely SwiftData ModelContext reinit race condition on HomeViewModel.',file:'HomeViewModel.swift',line:112,status:'Investigating'},
+  {title:'URLSession task cancelled — ATTOMService.swift:67',sev:'RESOLVED',users:8,device:'Various',age:'3d ago',detail:'NSURLErrorCancelled (-999). Task cancelled during scene transition. Fixed by adding task cancellation handling in viewDidDisappear.',file:'ATTOMService.swift',line:67,status:'Resolved'},
+];
+
+// CLAUDE API
+async function callClaude(metaPrompt, title){
+  showModal(title,`<div class="generating"><div class="spinner"></div>Generating via Claude API…</div>`);
+  window._lastPrompt='';
+  try{
+    const res = await fetch('/.netlify/functions/claudeproxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: metaPrompt, title })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const text = data.text || 'No response.';
+    window._lastPrompt = text;
+    document.getElementById('modal-content').innerHTML=`<div class="prompt-box">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  }catch(e){
+    document.getElementById('modal-content').innerHTML=`<div class="prompt-box" style="color:var(--red)">Error: ${e.message}\n\nEnsure ANTHROPIC_API_KEY is set in Netlify environment variables.</div>`;
+  }
+}
+
+function genCrashPrompt(idx){
+  const c=crashes[idx];
+  callClaude(
+    `You are an expert iOS/SwiftUI engineer. Generate a precise, ready-to-paste Claude Code prompt to diagnose and fix this crash. Include: exact file/line context, specific Swift/SwiftUI patterns to investigate, concrete code changes to make, and any related DDmap-specific context (SwiftData, ATTOM API, RevenueCat). Output only the prompt — no preamble.\n\nCrash:\nFile: ${c.file}:${c.line}\nError: ${c.title}\nSeverity: ${c.sev} · ${c.users} users affected · ${c.device}\nDetail: ${c.detail}\nApp: DDmap SwiftUI iOS app · SwiftData persistence · ATTOM Data via URLSession · RevenueCat subscriptions\nProject path: ~/Desktop/DDmap/DDmap/DDmap/`,
+    `Claude Code — ${c.file}`
+  );
+}
+
+function genAllCrashesPrompt(){
+  const open=crashes.filter(c=>c.status!=='Resolved');
+  const txt=open.map((c,i)=>`${i+1}. ${c.title}\n   ${c.file}:${c.line} · ${c.detail}`).join('\n\n');
+  callClaude(
+    `You are an expert iOS/SwiftUI engineer. Generate a single Claude Code session prompt to fix all open DDmap crashes in one sprint. Order by dependency and severity. Be specific — include exact files, line numbers, and Swift patterns to check.\n\nOpen crashes:\n${txt}\n\nApp context: DDmap SwiftUI · SwiftData · ATTOM URLSession · RevenueCat · Project: ~/Desktop/DDmap/DDmap/DDmap/`,
+    'Claude Code — All Open Crashes'
+  );
+}
+
+function genTodoPrompt(id){
+  const todo=todos.find(t=>t.id===id);if(!todo)return;
+  callClaude(
+    `You are an expert iOS/SwiftUI engineer and product developer. Generate a precise, ready-to-paste Claude or Claude Code prompt for this DDmap task. Be specific — not generic. Include file paths, patterns, and acceptance criteria.\n\nTask: "${todo.text}"\nPriority: ${todo.priority}\n\nApp context: DDmap SwiftUI iOS property intelligence app · SwiftData persistence · ATTOM Data API via Cloudflare Worker proxy · RevenueCat subscriptions (Free / Per Property $2.99 / Pro Mo $12.50 / Pro Annual $99) · Share and PDF export = Pro only · Project: ~/Desktop/DDmap/DDmap/DDmap/`,
+    `Prompt — ${todo.text.slice(0,45)}…`
+  );
+}
+
+function genBatchPrompt(){
+  const high=todos.filter(t=>!t.done&&t.priority==='high').map(t=>t.text);
+  callClaude(
+    `You are an expert iOS/SwiftUI engineer. Generate a single focused Claude Code session prompt to tackle all high-priority DDmap tasks. Order them by dependency. Be specific with file paths and implementation detail.\n\nHigh-priority tasks:\n${high.map((t,i)=>`${i+1}. ${t}`).join('\n')}\n\nApp: DDmap SwiftUI · SwiftData · ATTOM API (Cloudflare Worker proxy not yet deployed) · RevenueCat · Project: ~/Desktop/DDmap/DDmap/DDmap/`,
+    'Sprint Prompt — All High Priority'
+  );
+}
+
+// MODAL
+function showModal(title,html){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-content').innerHTML=html;
+  document.getElementById('prompt-modal').style.display='flex';
+}
+function closeModal(){document.getElementById('prompt-modal').style.display='none';}
+function copyPrompt(){
+  const text=window._lastPrompt||document.querySelector('.prompt-box')?.textContent||'';
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('copy-btn');
+    const orig=btn.textContent;btn.textContent='Copied ✓';
+    setTimeout(()=>btn.textContent=orig,2000);
+  });
+}
+
+// P&L CUSTOM LINE ITEMS
+let customRevenue = [];
+let customExpenses = [];
+let _pnlMode = 'expense'; // tracks what modal is adding
+
+try { customRevenue = JSON.parse(localStorage.getItem('ddmap-pnl-revenue') || '[]'); } catch(e){}
+try { customExpenses = JSON.parse(localStorage.getItem('ddmap-pnl-expenses') || '[]'); } catch(e){}
+
+function savePnlCustom(){
+  try { localStorage.setItem('ddmap-pnl-revenue', JSON.stringify(customRevenue)); } catch(e){}
+  try { localStorage.setItem('ddmap-pnl-expenses', JSON.stringify(customExpenses)); } catch(e){}
+}
+
+function renderCustomPnlRows(){
+  const revEl = document.getElementById('pnl-custom-revenue-rows');
+  const expEl = document.getElementById('pnl-custom-expense-rows');
+  if(revEl){
+    revEl.innerHTML = customRevenue.map(item=>`
+      <div class="pnl-row" data-id="${item.id}" style="animation:fadeUp 0.15s ease">
+        <span class="pnl-label" style="display:flex;align-items:center;gap:8px">
+          <button onclick="removePnlItem('revenue','${item.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;line-height:1;padding:0 2px;border-radius:2px" title="Remove">×</button>
+          ${item.label}
+        </span>
+        <span class="pnl-value" style="color:var(--green)">$${parseFloat(item.amount).toFixed(2)}</span>
+      </div>`).join('');
+  }
+  if(expEl){
+    expEl.innerHTML = customExpenses.map(item=>`
+      <div class="pnl-row" data-id="${item.id}" style="animation:fadeUp 0.15s ease">
+        <span class="pnl-label" style="display:flex;align-items:center;gap:8px">
+          <button onclick="removePnlItem('expense','${item.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;line-height:1;padding:0 2px;border-radius:2px" title="Remove">×</button>
+          ${item.label}
+        </span>
+        <span class="pnl-value" style="color:var(--accent3)">$${parseFloat(item.amount).toFixed(2)}</span>
+      </div>`).join('');
+  }
+}
+
+function addPnlItem(mode){
+  _pnlMode = mode;
+  const title = document.getElementById('pnl-modal-title');
+  const saveBtn = document.getElementById('pnl-modal-save');
+  if(title) title.textContent = mode === 'revenue' ? 'Add Revenue Item' : 'Add Expense';
+  if(saveBtn) saveBtn.className = mode === 'revenue' ? 'btn btn-green' : 'btn btn-blue';
+  document.getElementById('pnl-item-label').value = '';
+  document.getElementById('pnl-item-amount').value = '';
+  document.getElementById('pnl-add-modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('pnl-item-label').focus(), 50);
+}
+
+function closePnlModal(){
+  document.getElementById('pnl-add-modal').style.display = 'none';
+}
+
+function savePnlItem(){
+  const label = document.getElementById('pnl-item-label').value.trim();
+  const amount = parseFloat(document.getElementById('pnl-item-amount').value);
+  if(!label || isNaN(amount)) return;
+  const item = { id: Date.now().toString(), label, amount };
+  if(_pnlMode === 'revenue') customRevenue.push(item);
+  else customExpenses.push(item);
+  savePnlCustom();
+  renderCustomPnlRows();
+  closePnlModal();
+  fetchPnl(); // recalculate
+}
+
+function removePnlItem(mode, id){
+  if(mode === 'revenue') customRevenue = customRevenue.filter(i=>i.id!==id);
+  else customExpenses = customExpenses.filter(i=>i.id!==id);
+  savePnlCustom();
+  renderCustomPnlRows();
+  fetchPnl();
+}
+
+// Close modal on background click
+document.getElementById('pnl-add-modal').addEventListener('click', function(e){ if(e.target===this) closePnlModal(); });
+
+renderCustomPnlRows();
+
+// P&L — assembled from live RevenueCat + KV data + custom items
+async function fetchPnl(){
+  try {
+    const [rcRes, kvRes] = await Promise.all([
+      fetch('/.netlify/functions/revenuecat'),
+      fetch('/.netlify/functions/apicosts')
+    ]);
+    const rc  = await rcRes.json();
+    const kv  = await kvRes.json();
+
+    const metrics = rc.metrics || [];
+    const get = (id) => metrics.find(m => m.id === id)?.value ?? 0;
+
+    const mrr      = get('mrr');
+    const tiers    = rc.revenueByTier || [];
+
+    // Revenue by tier
+    const annual  = tiers.find(t => t.productId === 'com.ddmap.pro.annual')?.revenue  || 0;
+    const monthly = tiers.find(t => t.productId === 'com.ddmap.pro.monthly')?.revenue || 0;
+    const perProp = tiers.find(t => t.productId === 'com.ddmap.unlock.property')?.revenue || 0;
+    const customRevTotal = customRevenue.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const gross   = annual + monthly + perProp + customRevTotal || mrr;
+    const appleCut = (annual + monthly + perProp || mrr) * 0.30; // Apple cut only on IAP revenue
+    const netRev   = gross - appleCut;
+
+    // Expenses — ATTOM from KV, fixed, plus custom
+    const attomCost    = kv.live ? kv.totalCost : 500;
+    const appleDev     = 8.25;
+    const customExpTotal = customExpenses.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const totalExp     = attomCost + appleDev + customExpTotal;
+    const netProfit    = netRev - totalExp;
+    const margin       = netRev > 0 ? Math.round((netProfit / netRev) * 100) : 0;
+
+    const fmt = (v) => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const now = new Date();
+    const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    ['pnl-month-badge','pnl-month-badge-2'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.textContent = monthLabel;
+    });
+
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('pnl-annual',      fmt(annual));
+    set('pnl-monthly',     fmt(monthly));
+    set('pnl-perprop',     fmt(perProp));
+    set('pnl-gross',       fmt(gross));
+    set('pnl-apple-cut',   '−' + fmt(appleCut));
+    set('pnl-net-revenue', fmt(netRev));
+    set('pnl-attom',         fmt(attomCost));
+    set('pnl-total-expenses', fmt(totalExp));
+    set('pnl-net-profit',    (netProfit >= 0 ? '' : '−') + fmt(netProfit));
+    set('pnl-margin',        margin + '%');
+
+    const profitEl = document.getElementById('pnl-net-profit');
+    if(profitEl) profitEl.style.color = netProfit >= 0 ? 'var(--yellow)' : 'var(--red)';
+    const marginEl = document.getElementById('pnl-margin');
+    if(marginEl) marginEl.style.color = margin >= 0 ? 'var(--yellow)' : 'var(--red)';
+
+    const overviewMargin = document.getElementById('kpi-net-margin');
+    if(overviewMargin) overviewMargin.textContent = margin + '%';
+
+    console.log('[P&L] gross:', fmt(gross), '| custom exp:', fmt(customExpTotal), '| expenses:', fmt(totalExp), '| net:', fmt(netProfit), '| margin:', margin + '%');
+  } catch(e) {
+    console.error('[P&L] fetch failed:', e.message);
+  }
+}
+fetchPnl();
+setInterval(fetchPnl, 5 * 60 * 1000);
+
+// PITCH DECK GENERATOR
+async function generatePitchDeck(){
+  const btn = document.getElementById('pitch-btn');
+  const status = document.getElementById('pitch-status');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Generating…'; }
+  if(status) status.textContent = 'Building slides from live data…';
+
+  try {
+    // Gather live data from the page
+    const mrr = document.getElementById('kpi-mrr-2')?.textContent || '$0';
+    const users = document.getElementById('kpi-users')?.textContent || '0';
+    const subs = document.getElementById('kpi-subs')?.textContent || '0';
+    const apiCost = document.getElementById('kpi-apicost')?.textContent || '$500';
+    const openCrashes = document.getElementById('kpi-open-issues')?.textContent || '0';
+
+    const payload = { mrr, users, subs, apiCost, openCrashes };
+
+    const res = await fetch('/.netlify/functions/pitchdeck', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if(!res.ok) throw new Error('Function returned ' + res.status);
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'DDmap_Pitch_Deck_' + new Date().toISOString().split('T')[0] + '.pptx';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if(status) status.textContent = '✓ Downloaded — ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    console.error('[PitchDeck] error:', e.message);
+    if(status) status.textContent = '✕ Error — ' + e.message;
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '↓ Generate Pitch Deck'; }
+  }
+}
+
+// CRASHES — live from Firebase Crashlytics
+async function fetchCrashes(){
+  try {
+    const res = await fetch('/.netlify/functions/crashes');
+    const data = await res.json();
+
+    const badge = document.getElementById('crashes-badge');
+    const listEl = document.getElementById('crashes-list');
+    const openEl = document.getElementById('kpi-open-issues');
+    const openDelta = document.getElementById('kpi-open-issues-delta');
+    const affectedEl = document.getElementById('kpi-users-affected');
+    const occurrencesEl = document.getElementById('kpi-occurrences');
+
+    if(!data.live){
+      if(badge){ badge.textContent = 'Unavailable'; badge.className = 'card-badge badge-orange'; }
+      if(listEl) listEl.innerHTML = `<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:20px 0;text-align:center;line-height:1.8">
+        ${data.error || 'Could not load crash data'}<br>
+        <a href="https://console.firebase.google.com/project/ddmap-8ba65/crashlytics" target="_blank" style="color:var(--accent)">Open Crashlytics directly ↗</a>
+      </div>`;
+      return;
+    }
+
+    const openIssues = data.issues.filter(i => i.status !== 'CLOSED');
+    const totalAffected = openIssues.reduce((s, i) => s + (i.impactedUsers || 0), 0);
+    const totalOccurrences = openIssues.reduce((s, i) => s + (i.occurrences || 0), 0);
+
+    // Update Firebase Crashlytics row in APIs & Data tab
+    const dotCrash = document.getElementById('dot-crashlytics');
+    const detailCrash = document.getElementById('detail-crashlytics');
+    const badgeCrash = document.getElementById('badge-crashlytics');
+    if (dotCrash) dotCrash.className = 'status-dot ' + (openIssues.length === 0 ? 's-ok' : 's-warn');
+    if (detailCrash) detailCrash.innerHTML = `iOS SDK integrated · Real-time crash monitoring<br>${openIssues.length} open issue${openIssues.length !== 1 ? 's' : ''} · ${totalAffected} user${totalAffected !== 1 ? 's' : ''} affected`;
+    if (badgeCrash) { badgeCrash.textContent = openIssues.length === 0 ? 'No Issues' : openIssues.length + ' Open'; badgeCrash.className = 'sbadge ' + (openIssues.length === 0 ? 'sb-ok' : 'sb-warn'); }
+
+    if(openEl) openEl.textContent = openIssues.length;
+    if(openDelta){ openDelta.textContent = openIssues.length === 0 ? '🟢 No open issues' : openIssues.length + ' open'; openDelta.className = 'kpi-delta ' + (openIssues.length === 0 ? 'delta-up' : 'delta-down'); }
+    if(affectedEl) affectedEl.textContent = totalAffected.toLocaleString();
+    if(occurrencesEl) occurrencesEl.textContent = totalOccurrences.toLocaleString();
+
+    if(badge){
+      badge.textContent = openIssues.length === 0 ? '✓ No open issues' : openIssues.length + ' open';
+      badge.className = 'card-badge ' + (openIssues.length === 0 ? 'badge-green' : 'badge-red');
+    }
+
+    // Drive alert banner from live data
+    const alertBar = document.getElementById('alert-bar');
+    const alertText = document.getElementById('alert-bar-text');
+    const overviewCrashes = document.getElementById('kpi-overview-crashes');
+    const overviewCrashesDelta = document.getElementById('kpi-overview-crashes-delta');
+
+    if(openIssues.length === 0){
+      if(alertBar) alertBar.style.display = 'none';
+      if(overviewCrashes){ overviewCrashes.textContent = '0'; overviewCrashes.style.color = 'var(--green)'; }
+      if(overviewCrashesDelta){ overviewCrashesDelta.textContent = '✓ No open issues'; overviewCrashesDelta.className = 'kpi-delta delta-up'; }
+    } else {
+      const top = openIssues[0];
+      if(alertBar) alertBar.style.display = 'flex';
+      if(alertText) alertText.innerHTML = `<strong>${openIssues.length} open crash${openIssues.length > 1 ? 'es' : ''}</strong> — ${top.title} · ${top.impactedUsers} user${top.impactedUsers !== 1 ? 's' : ''} affected · <span style="cursor:pointer;text-decoration:underline" onclick="setTabByName('crashes')">View →</span>`;
+      if(overviewCrashes){ overviewCrashes.textContent = openIssues.length; overviewCrashes.style.color = 'var(--red)'; }
+      if(overviewCrashesDelta){ overviewCrashesDelta.textContent = openIssues.length + ' open · Firebase'; overviewCrashesDelta.className = 'kpi-delta delta-down'; }
+    }
+
+    if(listEl){
+      if(data.issues.length === 0){
+        listEl.innerHTML = `<div style="color:var(--green);font-size:13px;font-family:var(--font-m);padding:24px 0;text-align:center">✓ No crash issues found</div>`;
+      } else {
+        listEl.innerHTML = data.issues.map(issue => {
+          const isOpen = issue.status !== 'CLOSED';
+          const dotColor = isOpen ? 'var(--red)' : 'var(--muted)';
+          const statusColor = isOpen ? 'var(--red)' : 'var(--green)';
+          const lastSeen = issue.lastSeen ? new Date(issue.lastSeen).toLocaleDateString() : '—';
+          return `<div class="crash-item">
+            <div style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;background:${dotColor}"></div>
+            <div style="flex:1">
+              <div class="crash-title">${issue.title}</div>
+              <div class="crash-meta">
+                ${issue.impactedUsers} user${issue.impactedUsers !== 1 ? 's' : ''} · ${issue.occurrences} occurrence${issue.occurrences !== 1 ? 's' : ''} · Last seen ${lastSeen} · <span style="color:${statusColor}">${issue.status}</span>
+              </div>
+              <div class="crash-actions">
+                <a href="https://console.firebase.google.com/project/ddmap-8ba65/crashlytics" target="_blank" class="btn btn-ghost">Open in Crashlytics ↗</a>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    console.log('[Crashes] open:', openIssues.length, '| affected users:', totalAffected);
+  } catch(e) {
+    console.error('[Crashes] fetch failed:', e.message);
+    const badge = document.getElementById('crashes-badge');
+    const listEl = document.getElementById('crashes-list');
+    if(badge){ badge.textContent = 'Error'; badge.className = 'card-badge badge-orange'; }
+    if(listEl) listEl.innerHTML = `<div style="color:var(--red);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">Failed to load — check Netlify function logs</div>`;
+  }
+}
+fetchCrashes();
+setInterval(fetchCrashes, 5 * 60 * 1000);
+
+// API COSTS — live from Cloudflare KV
+async function fetchApiCosts(){
+  try {
+    const res = await fetch('/.netlify/functions/apicosts');
+    const data = await res.json();
+
+    const badge = document.getElementById('apicosts-badge');
+    const rowsEl = document.getElementById('apicosts-rows');
+    const totalCallsEl = document.getElementById('apicosts-total-calls');
+    const totalCostEl = document.getElementById('apicosts-total-cost');
+    const kpiCost = document.getElementById('kpi-apicost');
+    const kpiCostDelta = document.getElementById('kpi-apicost-delta');
+
+    if(!data.live || !data.endpoints){
+      if(badge){ badge.textContent = 'KV Error'; badge.className = 'card-badge badge-orange'; }
+      if(rowsEl) rowsEl.innerHTML = `<div style="color:var(--red);font-size:11px;font-family:var(--font-m);padding:16px 0">${data.error || 'Failed to load — check Netlify function logs'}</div>`;
+      return;
+    }
+
+    if(badge){ badge.textContent = data.month + ' · Live'; badge.className = 'card-badge badge-green'; }
+
+    // Populate ATTOM Endpoint Registry in APIs tab
+    renderAttomRegistry(data.endpoints || []);
+
+    const maxCalls = Math.max(...data.endpoints.map(e => e.calls), 1);
+    const usagePct = Math.min(Math.round((data.totalCalls / data.includedCalls) * 100), 100);
+    const isOverage = data.overageCalls > 0;
+
+    // Also populate Search Map endpoint breakdown
+    const epBreakdown = document.getElementById('map-endpoint-breakdown');
+    if(epBreakdown && data.endpoints && data.endpoints.length > 0){
+      const maxEpCalls = Math.max(...data.endpoints.map(e=>e.calls),1);
+      epBreakdown.innerHTML = data.endpoints.map(ep=>{
+        const pct = Math.round((ep.calls/maxEpCalls)*100);
+        return `<div class="api-row"><span class="api-name">${ep.name}</span><div class="api-bar-wrap"><div class="api-bar-fill" style="width:${pct}%;background:var(--accent4)"></div></div><span class="api-calls">${ep.calls.toLocaleString()}</span></div>`;
+      }).join('');
+    } else if(epBreakdown){
+      epBreakdown.innerHTML='<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">No call data yet this month.</div>';
+    }
+
+    if(rowsEl){
+      // Usage bar vs included calls
+      const usageBar = `<div style="margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:6px;border:1px solid ${isOverage ? 'rgba(255,71,87,0.3)' : 'var(--border2)'}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:10px;font-family:var(--font-m);color:var(--muted)">
+          <span>INCLUDED CALLS USED</span>
+          <span style="color:${isOverage ? 'var(--red)' : 'var(--text)'}">${data.totalCalls.toLocaleString()} / ${data.includedCalls.toLocaleString()} ${isOverage ? '— <span style="color:var(--red)">OVERAGE: ' + data.overageCalls.toLocaleString() + ' calls × $0.15 = $' + (data.overageCalls * 0.15).toFixed(2) + '</span>' : ''}</span>
+        </div>
+        <div style="background:var(--border);border-radius:3px;height:6px;overflow:hidden">
+          <div style="width:${usagePct}%;background:${isOverage ? 'var(--red)' : 'var(--green)'};height:100%;border-radius:3px;transition:width 0.5s"></div>
+        </div>
+      </div>`;
+
+      if(data.totalCalls === 0){
+        rowsEl.innerHTML = usageBar + `<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center;line-height:1.8">
+          No ATTOM calls logged yet this month.<br>
+          <span style="color:var(--accent)">KV logging is live — calls will appear here as the app is used.</span>
+        </div>`;
+      } else {
+        rowsEl.innerHTML = usageBar + data.endpoints.map(ep => {
+          const barPct = Math.round((ep.calls / maxCalls) * 100);
+          const costFmt = '$' + ep.cost.toFixed(2);
+          return `<div class="api-row">
+            <span class="api-name">${ep.name}</span>
+            <div class="api-bar-wrap"><div class="api-bar-fill" style="width:${barPct}%"></div></div>
+            <span class="api-calls">${ep.calls.toLocaleString()}</span>
+            <span class="api-cost">${costFmt}</span>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    if(totalCallsEl) totalCallsEl.textContent = data.totalCalls.toLocaleString();
+    if(totalCostEl) totalCostEl.textContent = '$' + data.totalCost.toFixed(2);
+
+    // Also update overview KPI
+    const overviewCostEl = document.querySelector('#tab-overview .kpi-value[style*="accent3"]');
+    if(overviewCostEl && data.totalCost !== undefined) overviewCostEl.textContent = '$' + data.totalCost.toFixed(2);
+    if(kpiCost) kpiCost.textContent = '$' + data.totalCost.toFixed(2);
+    if(kpiCostDelta){ kpiCostDelta.textContent = data.totalCalls + ' calls this month'; kpiCostDelta.className = 'kpi-delta delta-flat'; }
+
+    console.log('[ApiCosts] month:', data.month, '| total calls:', data.totalCalls, '| cost: $' + data.totalCost);
+  } catch(e) {
+    console.error('[ApiCosts] fetch failed:', e.message);
+  }
+}
+fetchApiCosts();
+setInterval(fetchApiCosts, 5 * 60 * 1000);
+renderAttomRegistry([]); // show static metadata immediately, KV data fills in when fetchApiCosts resolves
+async function fetchAnalytics() {
+  try {
+    const res = await fetch('/.netlify/functions/analytics');
+    const data = await res.json();
+
+    if (!data.live) {
+      console.warn('[Analytics] not live:', data.error);
+      // Show "pending" state on all PostHog-dependent elements
+      ['top-screens-badge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = 'Pending data'; el.className = 'card-badge badge-orange'; }
+      });
+      const screensList = document.getElementById('top-screens-list');
+      if (screensList) screensList.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">No data yet — events populate as testers use the app.</div>';
+      return;
+    }
+
+    // ── DAU Chart ─────────────────────────────────────────────────────────
+    const dauChart = document.getElementById('dau-chart');
+    if (dauChart && data.dau && data.dau.length) {
+      dauChart.innerHTML = '';
+      const max = Math.max(...data.dau.map(d => d.count), 1);
+      data.dau.forEach(d => {
+        const b = document.createElement('div');
+        b.className = 'bar';
+        b.style.height = (d.count / max * 100) + '%';
+        b.style.setProperty('--bar-color', 'var(--accent)');
+        b.title = d.date + ': ' + d.count + ' opens';
+        dauChart.appendChild(b);
+      });
+      // Update date labels
+      const labels = dauChart.nextElementSibling;
+      if (labels && data.dau.length >= 2) {
+        const spans = labels.querySelectorAll('span');
+        const fmt = s => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (spans[0]) spans[0].textContent = fmt(data.dau[0].date);
+        if (spans[1]) spans[1].textContent = fmt(data.dau[Math.floor(data.dau.length / 2)].date);
+        if (spans[2]) spans[2].textContent = fmt(data.dau[data.dau.length - 1].date);
+      }
+    }
+
+    // ── Conversion Funnel ─────────────────────────────────────────────────
+    const funnelEl = document.getElementById('funnel');
+    if (funnelEl && data.funnel) {
+      const colors = ['var(--accent)', 'var(--accent)', 'var(--accent4)', 'var(--green)'];
+      const hasData = data.funnel.some(f => f.count > 0);
+      if (!hasData) {
+        funnelEl.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">No funnel data yet.</div>';
+      } else {
+        funnelEl.innerHTML = data.funnel.map((f, i) =>
+          `<div class="funnel-row">
+            <span class="funnel-label">${f.label}</span>
+            <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${f.pct}%;background:${colors[i]}">${f.count.toLocaleString()}</div></div>
+            <span class="funnel-pct">${f.pct}%</span>
+          </div>`
+        ).join('');
+      }
+    }
+
+    // ── Top Screens ───────────────────────────────────────────────────────
+    const screensList = document.getElementById('top-screens-list');
+    const screensBadge = document.getElementById('top-screens-badge');
+    if (screensList) {
+      if (!data.screens || data.screens.length === 0) {
+        screensList.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:var(--font-m);padding:16px 0;text-align:center">No screen data yet.</div>';
+        if (screensBadge) { screensBadge.textContent = 'Pending'; screensBadge.className = 'card-badge badge-orange'; }
+      } else {
+        const maxCount = Math.max(...data.screens.map(s => s.count), 1);
+        screensList.innerHTML = data.screens.map(s => {
+          const pct = Math.round(s.count / maxCount * 100);
+          return `<div class="api-row"><span class="api-name">${s.name}</span><div class="api-bar-wrap"><div class="api-bar-fill" style="width:${pct}%;background:var(--accent4)"></div></div><span class="api-calls">${s.count.toLocaleString()}</span></div>`;
+        }).join('');
+        if (screensBadge) { screensBadge.textContent = 'Live · 7d'; screensBadge.className = 'card-badge badge-green'; }
+      }
+    }
+
+    // ── Cache Hit Rate ────────────────────────────────────────────────────
+    const cacheHitEl     = document.getElementById('kpi-cache-hit');
+    const cacheHitDelta  = document.getElementById('kpi-cache-hit-delta');
+    const callsSavedEl   = document.getElementById('kpi-calls-saved');
+    const callsSavedDelta= document.getElementById('kpi-calls-saved-delta');
+    if (cacheHitEl) {
+      if (data.cacheHitRate === null) {
+        cacheHitEl.textContent = '—';
+        if (cacheHitDelta) { cacheHitDelta.textContent = 'No cache events yet'; cacheHitDelta.className = 'kpi-delta delta-flat'; }
+      } else {
+        cacheHitEl.textContent = data.cacheHitRate + '%';
+        if (cacheHitDelta) { cacheHitDelta.textContent = '30d · PostHog'; cacheHitDelta.className = 'kpi-delta delta-up'; }
+      }
+    }
+    if (callsSavedEl) {
+      callsSavedEl.textContent = data.callsSaved > 0 ? data.callsSaved.toLocaleString() : '—';
+      if (callsSavedDelta) callsSavedDelta.textContent = data.callsSaved > 0 ? '~$' + data.dollarsSaved + ' saved' : 'No data yet';
+    }
+
+    // ── Trial→Paid conversion ─────────────────────────────────────────────
+    const convEl = document.getElementById('kpi-conv-rate');
+    const convDelta = document.getElementById('kpi-conv-rate-delta');
+    if (convEl) {
+      convEl.textContent = data.convRate > 0 ? data.convRate + '%' : '—';
+      if (convDelta) convDelta.textContent = data.convRate > 0 ? 'Paywall → paid · 30d' : 'No purchases yet';
+    }
+
+    console.log('[Analytics] DAU points:', data.dau?.length, '| conv:', data.convRate + '%', '| cache hit:', data.cacheHitRate + '%');
+  } catch(e) {
+    console.error('[Analytics] fetch failed:', e.message);
+  }
+}
+fetchAnalytics();
+setInterval(fetchAnalytics, 10 * 60 * 1000);
+
+
+
+// LOCATIONS (beta search data — KV)
+fetchLocations();
+setInterval(fetchLocations, 10 * 60 * 1000);
+
+// UPTIME BLOCKS — rendered from localStorage healthcheck history
+function renderUptimeBlocks(history) {
+  const el = document.getElementById('uptime-blocks');
+  if (!el) return;
+
+  // Fill any missing days in the last 30 with unknown state
+  const blocks = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const entry = history.find(h => h.date === key);
+    blocks.push({ date: key, state: entry ? (entry.ok ? 'ok' : 'err') : 'unk' });
+  }
+
+  const upDays = blocks.filter(b => b.state === 'ok').length;
+  const knownDays = blocks.filter(b => b.state !== 'unk').length;
+  const uptimePct = knownDays > 0 ? Math.round(upDays / knownDays * 100) : 100;
+
+  el.innerHTML = blocks.map(b => {
+    const color = b.state === 'ok' ? 'var(--green)' : b.state === 'err' ? 'var(--red)' : 'var(--border2)';
+    return `<div title="${b.date} · ${b.state === 'ok' ? 'All operational' : b.state === 'err' ? 'Issue detected' : 'No data'}" style="flex:1;height:18px;border-radius:2px;background:${color};cursor:default;min-width:6px"></div>`;
+  }).join('');
+
+  // Update uptime label if present
+  const uptimeLabel = document.getElementById('uptime-pct');
+  if (uptimeLabel) uptimeLabel.textContent = knownDays > 0 ? uptimePct + '% uptime' : 'Building history…';
+}
+
+// Initialize uptime blocks from existing localStorage on load
+(function(){
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem('ddmap-uptime') || '[]'); } catch(e) {}
+  renderUptimeBlocks(h);
+})();
+
+// HEALTHCHECK
+async function fetchHealthcheck(){
+  const services = [
+    {key:'attom', dotId:'dot-attom', msId:'ms-attom', badgeId:'badge-attom'},
+    {key:'revenuecat', dotId:'dot-revenuecat', msId:'ms-revenuecat', badgeId:'badge-revenuecat'},
+    {key:'worker', dotId:'dot-worker', msId:'ms-worker', badgeId:'badge-worker'},
+    {key:'netlify', dotId:'dot-netlify', msId:'ms-netlify', badgeId:'badge-netlify'},
+    {key:'appstore', dotId:'dot-appstore', msId:'ms-appstore', badgeId:'badge-appstore'},
+  ];
+  services.forEach(s => {
+    const dot = document.getElementById(s.dotId);
+    const badge = document.getElementById(s.badgeId);
+    if(dot) dot.className = 'status-dot s-unk';
+    if(badge){ badge.textContent = 'Checking…'; badge.className = 'sbadge sb-unk'; }
+  });
+  try {
+    const res = await fetch('/.netlify/functions/healthcheck');
+    const data = await res.json();
+    const results = data.services || [];
+    services.forEach(s => {
+      const svc = results.find(r => r.name === s.key);
+      const dot = document.getElementById(s.dotId);
+      const msEl = document.getElementById(s.msId);
+      const badge = document.getElementById(s.badgeId);
+      if(!svc || !dot) return;
+      const ok = svc.status === 'operational';
+      dot.className = 'status-dot ' + (ok ? 's-ok' : 's-err');
+      if(msEl){ msEl.textContent = svc.ms ? svc.ms + 'ms' : '—'; msEl.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+      if(badge){ badge.textContent = ok ? 'Operational' : 'Error'; badge.className = 'sbadge ' + (ok ? 'sb-ok' : 'sb-err'); }
+    });
+    // Also update overview service status card
+    const ovMap = {attom:'ov-attom',revenuecat:'ov-revenuecat',worker:'ov-worker',netlify:'ov-netlify',appstore:'ov-appstore'};
+    let allOk = true;
+    results.forEach(svc => {
+      const ovId = ovMap[svc.name];
+      if(!ovId) return;
+      const ok = svc.status === 'operational';
+      if(!ok) allOk = false;
+      const el = document.getElementById(ovId);
+      if(el){ el.textContent = '● ' + (ok ? 'Operational' : 'Error'); el.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+    });
+    const ovBadge = document.getElementById('overview-status-badge');
+    if(ovBadge){ ovBadge.textContent = allOk ? 'All Nominal' : 'Issue Detected'; ovBadge.className = 'card-badge ' + (allOk ? 'badge-green' : 'badge-orange'); }
+
+    // Persist today's uptime status to localStorage
+    const today = new Date().toISOString().slice(0, 10);
+    let uptimeHistory = [];
+    try { uptimeHistory = JSON.parse(localStorage.getItem('ddmap-uptime') || '[]'); } catch(e) {}
+    // Update or insert today
+    const todayIdx = uptimeHistory.findIndex(d => d.date === today);
+    const todayEntry = { date: today, ok: allOk };
+    if (todayIdx >= 0) uptimeHistory[todayIdx] = todayEntry;
+    else uptimeHistory.push(todayEntry);
+    // Keep last 30 days
+    uptimeHistory = uptimeHistory.sort((a,b) => a.date.localeCompare(b.date)).slice(-30);
+    try { localStorage.setItem('ddmap-uptime', JSON.stringify(uptimeHistory)); } catch(e) {}
+
+    // Render uptime blocks
+    renderUptimeBlocks(uptimeHistory);
+  } catch(e) {
+    console.error('[Healthcheck] failed:', e.message);
+  }
+}
+fetchHealthcheck();
+setInterval(fetchHealthcheck, 5 * 60 * 1000);
+</script>
+</body>
+</html>
